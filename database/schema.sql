@@ -14,6 +14,7 @@ USE rifa;
 CREATE TABLE IF NOT EXISTS rifas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     titulo VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE,                       -- URL amigável gerada do título
     descricao TEXT,
     qtde_bilhetes INT NOT NULL,                    -- Ex: 100, 200, 10000
     tipo_sorteio ENUM('dezena', 'milhar') NOT NULL, -- dezena = 2 dígitos, milhar = 4 dígitos

@@ -3,7 +3,7 @@
  * GET /api/rifas/[rifaId] - Retorna dados completos de uma rifa
  */
 
-import { getRifa, getPremiosByRifa, getBlocosByRifa, getBilhetesByRifa, query } from '../../../lib/db';
+import { getRifa, getRifaBySlug, getPremiosByRifa, getBilhetesByRifa, query } from '../../../lib/db';
 
 export default async function handler(req, res) {
   const { rifaId } = req.query;
@@ -13,14 +13,18 @@ export default async function handler(req, res) {
   }
 
   try {
-    const rifa = await getRifa(parseInt(rifaId));
+    // Suporta tanto ID numérico quanto slug amigável
+    const isNumericId = /^\d+$/.test(rifaId);
+    const rifa = isNumericId
+      ? await getRifa(parseInt(rifaId))
+      : await getRifaBySlug(rifaId);
 
     if (!rifa) {
       return res.status(404).json({ error: 'Rifa não encontrada' });
     }
 
-    const premios = await getPremiosByRifa(parseInt(rifaId));
-    const bilhetes = await getBilhetesByRifa(parseInt(rifaId));
+    const premios = await getPremiosByRifa(rifa.id);
+    const bilhetes = await getBilhetesByRifa(rifa.id);
 
     // Buscar blocos com informações de vendedor
     const blocosResult = await query(
@@ -29,7 +33,7 @@ export default async function handler(req, res) {
        LEFT JOIN vendedores v ON b.vendedor_id = v.id
        WHERE b.rifa_id = ?
        ORDER BY b.numero`,
-      [parseInt(rifaId)]
+      [rifa.id]
     );
 
     res.status(200).json({

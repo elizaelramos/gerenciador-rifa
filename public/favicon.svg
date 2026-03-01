@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Fundo arredondado -->
+  <rect width="32" height="32" rx="7" fill="#2563eb"/>
+  <!-- Bilhete: corpo principal -->
+  <rect x="4" y="10" width="24" height="12" rx="2" fill="white"/>
+  <!-- Recorte esquerdo (meia-lua) -->
+  <circle cx="4" cy="16" r="3" fill="#2563eb"/>
+  <!-- Recorte direito (meia-lua) -->
+  <circle cx="28" cy="16" r="3" fill="#2563eb"/>
+  <!-- Linha tracejada central -->
+  <line x1="13" y1="10" x2="13" y2="22" stroke="#2563eb" stroke-width="1.2" stroke-dasharray="2,2"/>
+  <!-- Estrela à direita -->
+  <text x="20.5" y="19" font-size="7" text-anchor="middle" fill="#2563eb" font-family="Arial" font-weight="bold">★</text>
+</svg>

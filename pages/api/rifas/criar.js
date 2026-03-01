@@ -8,6 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { gerarNumerosAleatorios } from '../../../lib/rifaLogic';
+import { gerarSlug } from '../../../lib/formatters';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -80,12 +81,13 @@ export default async function handler(req, res) {
 
     // 1. Criar a rifa
     const bilhetes_por_bloco = Math.ceil(qtde_bilhetes / qtde_blocos);
+    const slug = gerarSlug(titulo);
 
     const resultRifa = await query(
-      `INSERT INTO rifas (titulo, descricao, logo_url, qtde_bilhetes, tipo_sorteio, qtde_blocos,
+      `INSERT INTO rifas (titulo, descricao, slug, logo_url, qtde_bilhetes, tipo_sorteio, qtde_blocos,
                           bilhetes_por_bloco, valor_bilhete, data_sorteio, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [titulo, descricao, dbLogoUrl || null, qtde_bilhetes, tipo_sorteio, qtde_blocos,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [titulo, descricao, slug, dbLogoUrl || null, qtde_bilhetes, tipo_sorteio, qtde_blocos,
         bilhetes_por_bloco, valor_bilhete, data_sorteio, 'preparacao']
     );
 
@@ -156,6 +158,7 @@ export default async function handler(req, res) {
       rifa: {
         id: rifaId,
         titulo,
+        slug,
         qtde_bilhetes,
         qtde_blocos,
         status: 'preparacao',

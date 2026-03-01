@@ -142,13 +142,13 @@ export default function Home() {
 
                   <div className="flex gap-2">
                     <Link
-                      href={`/rifa/${rifa.id}`}
+                      href={`/rifa/${rifa.slug || rifa.id}`}
                       className="btn btn-primary flex-1 text-center"
                     >
                       Ver Detalhes
                     </Link>
                     <Link
-                      href={`/validacao?rifaId=${rifa.id}`}
+                      href={`/validacao?rifaId=${rifa.slug || rifa.id}`}
                       className="btn btn-secondary text-center"
                     >
                       Validar

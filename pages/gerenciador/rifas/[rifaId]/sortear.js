@@ -9,10 +9,11 @@ export default function RealizarSorteio() {
     const { rifaId } = router.query;
 
     const [rifa, setRifa] = useState(null);
+    const [premios, setPremios] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [numeroLoteria, setNumeroLoteria] = useState('');
+    const [numerosLoteria, setNumerosLoteria] = useState([]);
     const [sorteando, setSorteando] = useState(false);
-    const [resultado, setResultado] = useState(null);
+    const [resultados, setResultados] = useState(null);
     const [erro, setErro] = useState(null);
 
     useEffect(() => {
@@ -27,6 +28,9 @@ export default function RealizarSorteio() {
 
             if (response.ok) {
                 setRifa(data.rifa);
+                const listaPremios = data.premios || [];
+                setPremios(listaPremios);
+                setNumerosLoteria(listaPremios.map(() => ''));
             } else {
                 setErro('Rifa não encontrada');
             }
@@ -38,12 +42,22 @@ export default function RealizarSorteio() {
         }
     };
 
+    const setNumero = (index, valor) => {
+        setNumerosLoteria((prev) => {
+            const copia = [...prev];
+            copia[index] = valor.replace(/\D/g, '').slice(0, 6);
+            return copia;
+        });
+    };
+
     const handleSortear = async (e) => {
         e.preventDefault();
 
-        if (!numeroLoteria || numeroLoteria.length < 5) {
-            alert('Digite o número completo da Loteria Federal (5 ou 6 dígitos)');
-            return;
+        for (let i = 0; i < numerosLoteria.length; i++) {
+            if (!numerosLoteria[i] || numerosLoteria[i].length < 5) {
+                alert(`Digite o número completo da Loteria Federal para o ${premios[i]?.descricao || `${i + 1}º Prêmio`} (5 ou 6 dígitos)`);
+                return;
+            }
         }
 
         setSorteando(true);
@@ -53,15 +67,13 @@ export default function RealizarSorteio() {
             const response = await fetch(`/api/rifas/${rifaId}/sortear`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    numero_loteria_federal: numeroLoteria
-                }),
+                body: JSON.stringify({ numerosLoteria }),
             });
 
             const data = await response.json();
 
             if (response.ok) {
-                setResultado(data.resultado);
+                setResultados(data.resultados || (data.resultado ? [data.resultado] : []));
             } else {
                 setErro(data.error || 'Erro ao realizar sorteio');
             }
@@ -71,6 +83,13 @@ export default function RealizarSorteio() {
         } finally {
             setSorteando(false);
         }
+    };
+
+    const extrairNumero = (numeroLoteria, tipoSorteio) => {
+        if (!numeroLoteria || numeroLoteria.length < 2) return '';
+        return tipoSorteio === 'dezena'
+            ? numeroLoteria.slice(-2).padStart(2, '0')
+            : numeroLoteria.slice(-4).padStart(4, '0');
     };
 
     if (loading) {
@@ -127,8 +146,8 @@ export default function RealizarSorteio() {
                                 <p className="font-semibold">{rifa.qtde_bilhetes}</p>
                             </div>
                             <div>
-                                <span className="text-gray-600">Status:</span>
-                                <p className="font-semibold capitalize">{rifa.status}</p>
+                                <span className="text-gray-600">Prêmios:</span>
+                                <p className="font-semibold">{premios.length}</p>
                             </div>
                         </div>
                     </div>
@@ -144,9 +163,9 @@ export default function RealizarSorteio() {
                 </div>
 
                 {/* Formulário de Sorteio */}
-                {rifa.status !== 'concluido' && !resultado && (
+                {rifa.status !== 'concluido' && !resultados && (
                     <div className="card">
-                        <h2 className="text-2xl font-bold mb-4">📝 Inserir Resultado da Loteria Federal</h2>
+                        <h2 className="text-2xl font-bold mb-4">📝 Inserir Resultados da Loteria Federal</h2>
 
                         {/* Botão para abrir site da Caixa */}
                         <div className="mb-6">
@@ -168,41 +187,59 @@ export default function RealizarSorteio() {
                             <ul className="text-sm text-yellow-700 space-y-1 list-disc list-inside">
                                 <li>Clique no botão acima para abrir o site oficial da Caixa</li>
                                 <li>Verifique o resultado do dia {formatarData(rifa.data_sorteio)}</li>
-                                <li>Digite o número do <strong>1º Prêmio</strong> (5 ou 6 dígitos) no campo abaixo</li>
-                                <li>O sistema extrairá automaticamente a {rifa.tipo_sorteio === 'dezena' ? 'dezena (2 últimos dígitos)' : 'milhar (4 últimos dígitos)'}</li>
+                                <li>Para cada prêmio, insira o número do sorteio correspondente (5 ou 6 dígitos)</li>
+                                <li>O sistema extrairá a {rifa.tipo_sorteio === 'dezena' ? 'dezena (2 últimos dígitos)' : 'milhar (4 últimos dígitos)'} automaticamente</li>
                             </ul>
                         </div>
 
-                        <form onSubmit={handleSortear} className="space-y-4">
-                            <div>
-                                <label className="label">Número da Loteria Federal (1º Prêmio) *</label>
-                                <input
-                                    type="text"
-                                    value={numeroLoteria}
-                                    onChange={(e) => setNumeroLoteria(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                    className="input text-2xl font-bold text-center"
-                                    placeholder="Ex: 016064"
-                                    maxLength={6}
-                                    required
-                                    disabled={sorteando}
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Digite os 5 ou 6 dígitos do número sorteado
-                                </p>
-                            </div>
+                        <form onSubmit={handleSortear} className="space-y-6">
+                            {premios.map((premio, index) => (
+                                <div key={premio.id || index} className="border rounded-lg p-4">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <p className="font-bold text-gray-800">{index + 1}º Prêmio</p>
+                                            <p className="text-sm text-gray-600">{premio.descricao}</p>
+                                            {premio.valor && (
+                                                <p className="text-sm font-semibold text-green-600">{formatarValor(premio.valor)}</p>
+                                            )}
+                                        </div>
+                                    </div>
 
-                            {numeroLoteria.length >= 5 && (
-                                <div className="bg-blue-50 p-4 rounded-lg">
-                                    <p className="text-sm text-gray-700 mb-1">Número que será usado para o sorteio:</p>
-                                    <p className="text-3xl font-bold text-blue-600">
-                                        {rifa.tipo_sorteio === 'dezena'
-                                            ? numeroLoteria.slice(-2).padStart(2, '0')
-                                            : numeroLoteria.slice(-4).padStart(4, '0')
-                                        }
-                                    </p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        ({rifa.tipo_sorteio === 'dezena' ? 'Dezena' : 'Milhar'} extraída do número {numeroLoteria})
-                                    </p>
+                                    <div>
+                                        <label className="label">Número da Loteria Federal</label>
+                                        <input
+                                            type="text"
+                                            value={numerosLoteria[index] || ''}
+                                            onChange={(e) => setNumero(index, e.target.value)}
+                                            className="input text-2xl font-bold text-center"
+                                            placeholder="Ex: 016064"
+                                            maxLength={6}
+                                            required
+                                            disabled={sorteando}
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Digite os 5 ou 6 dígitos do número sorteado
+                                        </p>
+                                    </div>
+
+                                    {(numerosLoteria[index] || '').length >= 5 && (
+                                        <div className="bg-blue-50 p-3 rounded-lg mt-3">
+                                            <p className="text-sm text-gray-700 mb-1">Número que será usado:</p>
+                                            <p className="text-2xl font-bold text-blue-600">
+                                                {extrairNumero(numerosLoteria[index], rifa.tipo_sorteio)}
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                ({rifa.tipo_sorteio === 'dezena' ? 'Dezena' : 'Milhar'} extraída de {numerosLoteria[index]})
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+
+                            {premios.length === 0 && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                    <p className="text-red-700 font-semibold">Nenhum prêmio cadastrado nesta rifa.</p>
+                                    <p className="text-red-600 text-sm mt-1">Cadastre prêmios antes de realizar o sorteio.</p>
                                 </div>
                             )}
 
@@ -212,60 +249,77 @@ export default function RealizarSorteio() {
                                 </div>
                             )}
 
-                            <button
-                                type="submit"
-                                className="btn btn-primary w-full text-lg"
-                                disabled={sorteando || numeroLoteria.length < 5}
-                            >
-                                {sorteando ? 'Realizando Sorteio...' : '🎲 Realizar Sorteio'}
-                            </button>
+                            {premios.length > 0 && (
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary w-full text-lg"
+                                    disabled={sorteando || numerosLoteria.some((n) => !n || n.length < 5)}
+                                >
+                                    {sorteando ? 'Realizando Sorteio...' : '🎲 Realizar Sorteio'}
+                                </button>
+                            )}
                         </form>
                     </div>
                 )}
 
-                {/* Resultado do Sorteio */}
-                {resultado && (
-                    <div className="card bg-gradient-to-br from-green-50 to-blue-50">
-                        <div className="text-center mb-6">
+                {/* Resultados do Sorteio */}
+                {resultados && resultados.length > 0 && (
+                    <div className="space-y-6">
+                        <div className="card bg-gradient-to-br from-green-50 to-blue-50 text-center">
                             <div className="text-6xl mb-4">🎉</div>
                             <h2 className="text-3xl font-bold text-green-800 mb-2">Sorteio Realizado!</h2>
-                            <p className="text-gray-600">O ganhador foi determinado com sucesso</p>
+                            <p className="text-gray-600">
+                                {resultados.length === 1 ? 'O ganhador foi' : 'Os ganhadores foram'} determinado{resultados.length !== 1 ? 's' : ''} com sucesso
+                            </p>
                         </div>
 
-                        <div className="space-y-4">
-                            <div className="bg-white p-4 rounded-lg shadow">
-                                <p className="text-sm text-gray-600 mb-1">Número da Loteria Federal</p>
-                                <p className="text-2xl font-bold text-gray-800">{resultado.numeroLoteriaFederal}</p>
-                            </div>
+                        {resultados.map((resultado, index) => (
+                            <div key={index} className="card">
+                                <h3 className="text-xl font-bold mb-4 border-b pb-2">
+                                    🏆 {index + 1}º Prêmio
+                                    {premios[index] && (
+                                        <span className="text-base font-normal text-gray-600 ml-2">
+                                            — {premios[index].descricao}
+                                        </span>
+                                    )}
+                                </h3>
 
-                            <div className="bg-white p-4 rounded-lg shadow">
-                                <p className="text-sm text-gray-600 mb-1">Número Sorteado ({rifa.tipo_sorteio})</p>
-                                <p className="text-3xl font-bold text-blue-600">{resultado.numeroSorteado}</p>
-                            </div>
+                                <div className="space-y-3">
+                                    <div className="bg-white border rounded-lg p-4">
+                                        <p className="text-sm text-gray-600 mb-1">Número da Loteria Federal</p>
+                                        <p className="text-2xl font-bold text-gray-800">{resultado.numeroLoteriaFederal}</p>
+                                    </div>
 
-                            <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 p-6 rounded-lg shadow-lg text-center">
-                                <p className="text-sm text-yellow-900 mb-2">🏆 NÚMERO GANHADOR</p>
-                                <p className="text-5xl font-bold text-white mb-3">{resultado.numeroGanhador}</p>
-                                <p className="text-sm text-yellow-900 italic">{resultado.motivo}</p>
-                                {resultado.distancia > 0 && (
-                                    <p className="text-xs text-yellow-900 mt-1">
-                                        (Distância: {resultado.distancia} {resultado.distancia === 1 ? 'número' : 'números'})
-                                    </p>
-                                )}
-                            </div>
+                                    <div className="bg-white border rounded-lg p-4">
+                                        <p className="text-sm text-gray-600 mb-1">Número Sorteado ({rifa.tipo_sorteio})</p>
+                                        <p className="text-3xl font-bold text-blue-600">{resultado.numeroSorteado}</p>
+                                    </div>
 
-                            <div className="bg-white p-6 rounded-lg shadow">
-                                <p className="text-sm text-gray-600 mb-3">👤 Ganhador</p>
-                                <p className="text-2xl font-bold text-gray-800 mb-2">{resultado.ganhador.nome}</p>
-                                <p className="text-lg text-gray-600">{resultado.ganhador.telefone}</p>
-                            </div>
-                        </div>
+                                    <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 p-5 rounded-lg shadow-lg text-center">
+                                        <p className="text-sm text-yellow-900 mb-2">NÚMERO GANHADOR</p>
+                                        <p className="text-5xl font-bold text-white mb-2">{resultado.numeroGanhador}</p>
+                                        <p className="text-sm text-yellow-900 italic">{resultado.motivo}</p>
+                                        {resultado.distancia > 0 && (
+                                            <p className="text-xs text-yellow-900 mt-1">
+                                                (Distância: {resultado.distancia} {resultado.distancia === 1 ? 'número' : 'números'})
+                                            </p>
+                                        )}
+                                    </div>
 
-                        <div className="mt-6 flex gap-3">
-                            <Link href={`/rifa/${rifaId}`} className="btn btn-primary flex-1">
+                                    <div className="bg-white border rounded-lg p-5">
+                                        <p className="text-sm text-gray-600 mb-2">👤 Ganhador</p>
+                                        <p className="text-2xl font-bold text-gray-800 mb-1">{resultado.ganhador.nome}</p>
+                                        <p className="text-lg text-gray-600">{resultado.ganhador.telefone}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+
+                        <div className="flex gap-3">
+                            <Link href={`/rifa/${rifaId}`} className="btn btn-primary flex-1 text-center">
                                 Ver Página da Rifa
                             </Link>
-                            <Link href="/gerenciador/dashboard" className="btn btn-secondary flex-1">
+                            <Link href="/gerenciador/dashboard" className="btn btn-secondary flex-1 text-center">
                                 Ir para Dashboard
                             </Link>
                         </div>

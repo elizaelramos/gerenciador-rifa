@@ -76,14 +76,17 @@ export default function Validacao() {
               className="space-y-4"
             >
               <div>
-                <label className="label">ID da Rifa</label>
+                <label className="label">Rifa</label>
                 <input
-                  type="number"
+                  type="text"
                   name="rifaId"
                   className="input"
-                  placeholder="Ex: 1"
+                  placeholder="Ex: rifa-beneficente-natal-2024"
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  O identificador da rifa está na URL da página dela (ex: /rifa/<strong>rifa-beneficente-natal-2024</strong>)
+                </p>
               </div>
 
               <div>
