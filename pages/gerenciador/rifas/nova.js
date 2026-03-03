@@ -183,7 +183,7 @@ export default function NovaRifa() {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
-    let newValue = type === 'number' ? parseFloat(value) : value;
+    let newValue = type === 'number' ? (value === '' ? '' : parseFloat(value)) : value;
 
     // Validar data do sorteio
     if (name === 'data_sorteio') {
@@ -688,7 +688,7 @@ export default function NovaRifa() {
                 <div className="bg-white p-3 rounded-lg shadow-sm">
                   <p className="text-xs text-gray-500 mb-1">Valor do Bilhete</p>
                   <p className="font-bold text-2xl text-green-700">
-                    R$ {formData.valor_bilhete.toFixed(2)}
+                    R$ {(parseFloat(formData.valor_bilhete) || 0).toFixed(2)}
                   </p>
                   <p className="text-xs text-gray-600 mt-1">por cartão</p>
                 </div>
@@ -717,11 +717,11 @@ export default function NovaRifa() {
                   <div>
                     <p className="text-sm opacity-90 mb-1">💰 Arrecadação Total Estimada</p>
                     <p className="text-3xl font-bold">
-                      R$ {(formData.qtde_bilhetes * formData.valor_bilhete).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      R$ {(formData.qtde_bilhetes * (parseFloat(formData.valor_bilhete) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div className="text-right text-sm opacity-90">
-                    <p>{formData.qtde_bilhetes} × R$ {formData.valor_bilhete.toFixed(2)}</p>
+                    <p>{formData.qtde_bilhetes} × R$ {(parseFloat(formData.valor_bilhete) || 0).toFixed(2)}</p>
                   </div>
                 </div>
               </div>

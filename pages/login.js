@@ -117,19 +117,6 @@ export default function Login() {
               </button>
             </form>
 
-            {/* Informações de acesso padrão */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm font-semibold text-blue-900 mb-2">
-                🔑 Acesso Administrador Padrão:
-              </p>
-              <p className="text-xs text-gray-700">
-                <strong>Email:</strong> admin@rifa.com<br />
-                <strong>Senha:</strong> admin123
-              </p>
-              <p className="text-xs text-orange-600 mt-2">
-                ⚠️ Altere a senha padrão em produção!
-              </p>
-            </div>
           </div>
 
           {/* Link para voltar */}

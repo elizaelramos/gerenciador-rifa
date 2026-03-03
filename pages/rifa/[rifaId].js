@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Head from 'next/head';
 import Layout from '../../components/Layout';
 import Link from 'next/link';
 import { formatarValor, formatarData } from '../../lib/formatters';
@@ -75,7 +76,7 @@ function BotoesCompartilhar({ titulo }) {
 }
 import { GraficoBlocosDistribuidos, GraficoBilhetesVendidos } from '../../components/GraficosRelatorio';
 
-export default function DetalhesRifa() {
+export default function DetalhesRifa({ ogData = {} }) {
   const router = useRouter();
   const { rifaId } = router.query;
 
@@ -266,7 +267,22 @@ export default function DetalhesRifa() {
 
   if (loading) {
     return (
-      <Layout title="Carregando...">
+      <Layout title={ogData.titulo || 'Carregando...'}>
+        <Head>
+          <title>{ogData.titulo || 'Carregando...'}</title>
+          {ogData.descricao && <meta name="description" content={ogData.descricao} />}
+          <meta property="og:type" content="website" />
+          {ogData.url && <meta property="og:url" content={ogData.url} />}
+          {ogData.titulo && <meta property="og:title" content={ogData.titulo} />}
+          {ogData.descricao && <meta property="og:description" content={ogData.descricao} />}
+          {ogData.imagem && <meta property="og:image" content={ogData.imagem} />}
+          {ogData.imagem && <meta property="og:image:width" content="1200" />}
+          {ogData.imagem && <meta property="og:image:height" content="630" />}
+          <meta name="twitter:card" content={ogData.imagem ? 'summary_large_image' : 'summary'} />
+          {ogData.titulo && <meta name="twitter:title" content={ogData.titulo} />}
+          {ogData.descricao && <meta name="twitter:description" content={ogData.descricao} />}
+          {ogData.imagem && <meta name="twitter:image" content={ogData.imagem} />}
+        </Head>
         <div className="flex items-center justify-center min-h-screen">
           <div className="spinner"></div>
         </div>
@@ -299,6 +315,25 @@ export default function DetalhesRifa() {
 
   return (
     <Layout title={rifa.titulo}>
+      <Head>
+        <title>{ogData.titulo || rifa.titulo}</title>
+        <meta name="description" content={ogData.descricao || rifa.descricao} />
+
+        {/* Open Graph - usado por WhatsApp, Telegram, Facebook etc */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={ogData.url || ''} />
+        <meta property="og:title" content={ogData.titulo || rifa.titulo} />
+        <meta property="og:description" content={ogData.descricao || rifa.descricao} />
+        {ogData.imagem && <meta property="og:image" content={ogData.imagem} />}
+        {ogData.imagem && <meta property="og:image:width" content="1200" />}
+        {ogData.imagem && <meta property="og:image:height" content="630" />}
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content={ogData.imagem ? 'summary_large_image' : 'summary'} />
+        <meta name="twitter:title" content={ogData.titulo || rifa.titulo} />
+        <meta name="twitter:description" content={ogData.descricao || rifa.descricao} />
+        {ogData.imagem && <meta name="twitter:image" content={ogData.imagem} />}
+      </Head>
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">
@@ -719,4 +754,54 @@ export default function DetalhesRifa() {
       </div>
     </Layout>
   );
+}
+export async function getServerSideProps(context) {
+  const { rifaId, req } = context;
+  const id = context.params.rifaId;
+
+  // Montar URL base para imagens absolutas
+  const protocol = context.req.headers['x-forwarded-proto'] || 'https';
+  const host = context.req.headers['x-forwarded-host'] || context.req.headers.host;
+  const baseUrl = `${protocol}://${host}`;
+
+  try {
+    const { getRifa, getRifaBySlug } = await import('../../lib/db');
+    const isNumericId = /^\d+$/.test(id);
+    const rifa = isNumericId
+      ? await getRifa(parseInt(id))
+      : await getRifaBySlug(id);
+
+    if (!rifa) {
+      return { props: { ogData: {} } };
+    }
+
+    // Truncar descrição para ~160 caracteres
+    const descricao = rifa.descricao
+      ? rifa.descricao.length > 160
+        ? rifa.descricao.substring(0, 157) + '...'
+        : rifa.descricao
+      : '';
+
+    // Tornar URL da imagem absoluta
+    let imagem = null;
+    if (rifa.logo_url) {
+      imagem = rifa.logo_url.startsWith('http')
+        ? rifa.logo_url
+        : `${baseUrl}${rifa.logo_url}`;
+    }
+
+    return {
+      props: {
+        ogData: {
+          titulo: rifa.titulo || '',
+          descricao,
+          imagem,
+          url: `${baseUrl}/rifa/${id}`,
+        },
+      },
+    };
+  } catch (error) {
+    console.error('getServerSideProps erro:', error);
+    return { props: { ogData: {} } };
+  }
 }

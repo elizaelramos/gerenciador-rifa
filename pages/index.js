@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import Link from 'next/link';
+import { formatarData } from '../lib/formatters';
 
 export default function Home() {
   const [rifas, setRifas] = useState([]);
@@ -129,7 +130,7 @@ export default function Home() {
                     <div>
                       <span className="text-gray-500">Data do Sorteio:</span>
                       <p className="font-semibold">
-                        {new Date(rifa.data_sorteio).toLocaleDateString('pt-BR')}
+                        {formatarData(rifa.data_sorteio)}
                       </p>
                     </div>
                     <div>
