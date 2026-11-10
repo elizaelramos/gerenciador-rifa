@@ -128,6 +128,24 @@ export default function DetalhesRifa({ ogData = {} }) {
     carregarDados();
   }, [rifaId]);
 
+  const [publicando, setPublicando] = useState(false);
+
+  const handlePublicar = async () => {
+    if (!confirm('Publicar a rifa? Ela passará a aparecer na página inicial para todos e as vendas ficam abertas.')) return;
+    setPublicando(true);
+    try {
+      const response = await fetch(`/api/rifas/${dados.rifa.id}/publicar`, { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro ao publicar rifa');
+      setDados(prev => ({ ...prev, rifa: { ...prev.rifa, status: 'distribuido' } }));
+      alert(data.message);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setPublicando(false);
+    }
+  };
+
   const handleAtribuirVendedor = async (blocoId) => {
     if (!usuario) {
       alert('Você precisa estar logado para realizar esta ação');
@@ -576,6 +594,16 @@ export default function DetalhesRifa({ ogData = {} }) {
 
         {/* Ações */}
         <div className="flex flex-wrap gap-4">
+          {podeGerenciar && rifa.status === 'preparacao' && (
+            <button
+              onClick={handlePublicar}
+              disabled={publicando}
+              className="btn bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {publicando ? 'Publicando...' : '📢 Publicar Rifa'}
+            </button>
+          )}
+
           {podeGerenciar && rifa.status !== 'concluido' && (
             <Link href={`/gerenciador/rifas/${rifaId}/editar`} className="btn btn-primary">
               ✏️ Editar Rifa

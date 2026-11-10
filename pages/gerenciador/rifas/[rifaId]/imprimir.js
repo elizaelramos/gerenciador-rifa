@@ -13,6 +13,22 @@ export default function ImprimirRifa() {
   const [loading, setLoading] = useState(true);
   const [qrCodes, setQrCodes] = useState({});
 
+  // O que imprimir: tudo, um bloco ou cartões avulsos (para reimprimir rasuras)
+  const [modo, setModo] = useState('todos');
+  const [blocoSelecionado, setBlocoSelecionado] = useState('');
+  const [numerosTexto, setNumerosTexto] = useState('');
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (router.query.bloco) {
+      setModo('bloco');
+      setBlocoSelecionado(String(router.query.bloco));
+    } else if (router.query.numeros) {
+      setModo('cartoes');
+      setNumerosTexto(String(router.query.numeros));
+    }
+  }, [router.isReady]);
+
   useEffect(() => {
     if (!rifaId) return;
     carregarDados();
@@ -83,6 +99,27 @@ export default function ImprimirRifa() {
     window.print();
   };
 
+  /** Lê "5, 12, 30-34" e devolve um teste que diz se um número da sorte foi pedido. */
+  const montarFiltroNumeros = (texto) => {
+    const partes = texto.split(/[\s,;]+/).filter(Boolean);
+    const exatos = new Set();
+    const faixas = [];
+    for (const parte of partes) {
+      const faixa = parte.match(/^(\d+)-(\d+)$/);
+      if (faixa) {
+        const a = Number(faixa[1]);
+        const b = Number(faixa[2]);
+        faixas.push([Math.min(a, b), Math.max(a, b)]);
+      } else if (/^\d+$/.test(parte)) {
+        exatos.add(Number(parte));
+      }
+    }
+    return (numero) => {
+      const n = Number(numero);
+      return exatos.has(n) || faixas.some(([a, b]) => n >= a && n <= b);
+    };
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -105,28 +142,231 @@ export default function ImprimirRifa() {
   }
 
   const bilhetesPorBloco = agruparBilhetesPorBloco();
-  const blocosOrdenados = blocos.sort((a, b) => a.numero - b.numero);
+  const blocosOrdenados = [...blocos].sort((a, b) => a.numero - b.numero);
+  const numeroDoBloco = Object.fromEntries(blocos.map(b => [b.id, b.numero]));
+
+  const blocosParaImprimir = modo === 'bloco'
+    ? blocosOrdenados.filter(b => String(b.numero) === blocoSelecionado)
+    : blocosOrdenados;
+
+  const cartoesAvulsos = modo === 'cartoes' && numerosTexto.trim()
+    ? (() => {
+        const pedido = montarFiltroNumeros(numerosTexto);
+        return [...bilhetes]
+          .filter(b => pedido(b.numero_sorte))
+          .sort((a, b) => Number(a.numero_sorte) - Number(b.numero_sorte));
+      })()
+    : [];
+
+  const nadaParaImprimir =
+    (modo === 'bloco' && blocosParaImprimir.length === 0) ||
+    (modo === 'cartoes' && cartoesAvulsos.length === 0);
+
+  const renderCartao = (bilhete, index) => (
+      <div
+        key={bilhete.id}
+        className={`cartao-altura border-2 border-dashed border-gray-400 flex ${(index + 1) % 5 === 0 ? 'page-break-after' : ''
+          }`}
+      >
+        {/* Coluna 1: Canhoto (30% da largura) */}
+        <div className="w-[30%] border-r-2 border-dashed border-gray-400 p-2 flex flex-col bg-gray-50">
+          <p className="text-[9px] font-bold mb-1 text-center">CANHOTO DO VENDEDOR</p>
+
+          {/* Número da Sorte + QR Code lado a lado */}
+          <div className="flex items-center gap-1 mb-2">
+            <div className="bg-blue-600 text-white p-1 rounded text-center" style={{ width: '45%' }}>
+              <p className="text-[6px] mb-0.5">Nº SORTE</p>
+              <p className="text-lg font-bold leading-tight">
+                {bilhete.numero_sorte}
+              </p>
+            </div>
+
+            {/* QR Code do Vendedor */}
+            {qrCodes[`vendedor_${bilhete.id}`] && (
+              <div className="text-center flex-1">
+                <img
+                  src={qrCodes[`vendedor_${bilhete.id}`]}
+                  alt="QR Registro"
+                  className="w-16 h-16 mx-auto"
+                />
+                <p className="text-[5px] font-semibold">
+                  CADASTRAR
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1 text-[9px]">
+            <div>
+              <p className="font-semibold">Nome:</p>
+              <div className="border-b border-gray-400 h-4"></div>
+            </div>
+
+            <div>
+              <p className="font-semibold">Telefone:</p>
+              <div className="border-b border-gray-400 h-4"></div>
+            </div>
+
+            <div>
+              <p className="font-semibold">Pago:</p>
+              <div className="flex gap-2">
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" className="w-3 h-3" />
+                  <span className="text-[8px]">Sim</span>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" className="w-3 h-3" />
+                  <span className="text-[8px]">Não</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Coluna 2: Cartão do Comprador (70% da largura) */}
+        <div className="w-[70%] p-2 flex flex-col">
+          {/* Cabeçalho com Logo */}
+          <div className="flex items-center gap-2 mb-1">
+            {/* Espaço para Logo do Gerenciador */}
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center border-2 border-blue-300 flex-shrink-0 overflow-hidden">
+              {rifa.logo_url ? (
+                <img
+                  src={rifa.logo_url}
+                  alt="Logo"
+                  className="w-full h-full object-contain p-0.5"
+                />
+              ) : (
+                /* Placeholder padrão quando não há logo */
+                <span className="text-blue-600 text-xl font-bold">🎫</span>
+              )}
+            </div>
+
+            {/* Título e Descrição */}
+            <div className="flex-1 text-left">
+              <h2 className="text-base font-bold text-blue-800 leading-tight">
+                {rifa.titulo}
+              </h2>
+              <p className="text-[8px] text-gray-600">{rifa.descricao}</p>
+            </div>
+          </div>
+
+          {/* Número da Sorte + QR Code lado a lado */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex-1 bg-blue-600 text-white p-2 rounded">
+              <p className="text-center text-[9px] mb-1">NÚMERO DA SORTE</p>
+              <p className="text-center text-2xl font-bold">
+                {bilhete.numero_sorte}
+              </p>
+            </div>
+
+            {/* QR Code do Comprador */}
+            {qrCodes[`comprador_${bilhete.id}`] && (
+              <div className="text-center">
+                <img
+                  src={qrCodes[`comprador_${bilhete.id}`]}
+                  alt="QR Validação"
+                  className="w-20 h-20"
+                />
+                <p className="text-[6px] font-semibold mt-0.5">
+                  VALIDAR
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-1 text-xs mb-1">
+            <div>
+              <p className="font-semibold text-[9px]">📅 Sorteio:</p>
+              <p className="text-[9px]">{rifa.data_sorteio ? new Date(rifa.data_sorteio + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não definida'}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-[9px]">💰 Valor:</p>
+              <p className="text-[9px]">R$ {parseFloat(rifa.valor_bilhete).toFixed(2)}</p>
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-300 p-1.5 rounded">
+            <p className="text-[8px] leading-tight">
+              <span className="font-bold text-[9px]">🏆 Prêmios: </span>
+              {premios.slice(0, 3).map((premio, index) => (
+                <span key={premio.id}>
+                  {index > 0 ? ' / ' : ''}
+                  {premio.posicao}º - {premio.descricao}
+                </span>
+              ))}
+            </p>
+          </div>
+        </div>
+      </div>
+  );
 
   return (
     <>
-      {/* Botão de Imprimir (não aparece na impressão) */}
-      <div className="no-print fixed top-4 right-4 z-50">
-        <button
-          onClick={handleImprimir}
-          className="btn btn-primary shadow-lg"
-        >
-          🖨️ Imprimir Tudo
-        </button>
-        <button
-          onClick={() => router.back()}
-          className="btn btn-secondary shadow-lg ml-2"
-        >
-          ← Voltar
-        </button>
+      {/* Barra de controle (não aparece na impressão) */}
+      <div className="no-print sticky top-0 z-50 bg-white border-b shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">O que imprimir</label>
+            <select value={modo} onChange={e => setModo(e.target.value)} className="input py-1.5">
+              <option value="todos">Todos os blocos</option>
+              <option value="bloco">Um bloco</option>
+              <option value="cartoes">Cartões específicos</option>
+            </select>
+          </div>
+
+          {modo === 'bloco' && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Bloco</label>
+              <select value={blocoSelecionado} onChange={e => setBlocoSelecionado(e.target.value)} className="input py-1.5">
+                <option value="">Escolha...</option>
+                {blocosOrdenados.map(b => (
+                  <option key={b.id} value={String(b.numero)}>
+                    Bloco {b.numero}{b.vendedor_nome ? ` — ${b.vendedor_nome}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {modo === 'cartoes' && (
+            <div className="flex-1 min-w-[220px]">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">
+                Números da sorte (ex.: 5, 12, 30-34)
+              </label>
+              <input
+                type="text"
+                value={numerosTexto}
+                onChange={e => setNumerosTexto(e.target.value)}
+                placeholder="5, 12, 30-34"
+                className="input py-1.5 w-full"
+              />
+            </div>
+          )}
+
+          <div className="flex gap-2 ml-auto">
+            <button onClick={() => router.back()} className="btn btn-secondary">
+              ← Voltar
+            </button>
+            <button onClick={handleImprimir} disabled={nadaParaImprimir} className="btn btn-primary disabled:opacity-50">
+              🖨️ Imprimir {modo === 'todos' ? 'tudo' : modo === 'bloco' ? 'bloco' : `${cartoesAvulsos.length} cartão(ões)`}
+            </button>
+          </div>
+        </div>
+        {modo === 'cartoes' && (
+          <p className="max-w-5xl mx-auto px-4 pb-3 text-xs text-gray-500">
+            O cartão reimpresso é idêntico ao original (mesmo número e mesmos QR Codes). Descarte o cartão rasurado.
+          </p>
+        )}
       </div>
 
-      {/* Renderizar cada bloco */}
-      {blocosOrdenados.map(bloco => {
+      {nadaParaImprimir && (
+        <div className="no-print text-center text-gray-500 py-16">
+          {modo === 'bloco' ? 'Escolha um bloco para visualizar.' : 'Digite os números dos cartões que quer reimprimir.'}
+        </div>
+      )}
+
+      {/* Blocos completos: orientações + capa + cartões */}
+      {modo !== 'cartoes' && blocosParaImprimir.map(bloco => {
         const bilhetesDoBloco = bilhetesPorBloco[bloco.id] || [];
 
         return (
@@ -271,146 +511,20 @@ export default function ImprimirRifa() {
             </div>
 
             {/* Páginas 3+: Cartões (5 por página) */}
-            {bilhetesDoBloco.map((bilhete, index) => (
-              <div
-                key={bilhete.id}
-                className={`cartao-altura border-2 border-dashed border-gray-400 flex ${(index + 1) % 5 === 0 ? 'page-break-after' : ''
-                  }`}
-              >
-                {/* Coluna 1: Canhoto (30% da largura) */}
-                <div className="w-[30%] border-r-2 border-dashed border-gray-400 p-2 flex flex-col bg-gray-50">
-                  <p className="text-[9px] font-bold mb-1 text-center">CANHOTO DO VENDEDOR</p>
-
-                  {/* Número da Sorte + QR Code lado a lado */}
-                  <div className="flex items-center gap-1 mb-2">
-                    <div className="bg-blue-600 text-white p-1 rounded text-center" style={{ width: '45%' }}>
-                      <p className="text-[6px] mb-0.5">Nº SORTE</p>
-                      <p className="text-lg font-bold leading-tight">
-                        {bilhete.numero_sorte}
-                      </p>
-                    </div>
-
-                    {/* QR Code do Vendedor */}
-                    {qrCodes[`vendedor_${bilhete.id}`] && (
-                      <div className="text-center flex-1">
-                        <img
-                          src={qrCodes[`vendedor_${bilhete.id}`]}
-                          alt="QR Registro"
-                          className="w-16 h-16 mx-auto"
-                        />
-                        <p className="text-[5px] font-semibold">
-                          CADASTRAR
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-1 text-[9px]">
-                    <div>
-                      <p className="font-semibold">Nome:</p>
-                      <div className="border-b border-gray-400 h-4"></div>
-                    </div>
-
-                    <div>
-                      <p className="font-semibold">Telefone:</p>
-                      <div className="border-b border-gray-400 h-4"></div>
-                    </div>
-
-                    <div>
-                      <p className="font-semibold">Pago:</p>
-                      <div className="flex gap-2">
-                        <label className="flex items-center gap-1">
-                          <input type="checkbox" className="w-3 h-3" />
-                          <span className="text-[8px]">Sim</span>
-                        </label>
-                        <label className="flex items-center gap-1">
-                          <input type="checkbox" className="w-3 h-3" />
-                          <span className="text-[8px]">Não</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Coluna 2: Cartão do Comprador (70% da largura) */}
-                <div className="w-[70%] p-2 flex flex-col">
-                  {/* Cabeçalho com Logo */}
-                  <div className="flex items-center gap-2 mb-1">
-                    {/* Espaço para Logo do Gerenciador */}
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center border-2 border-blue-300 flex-shrink-0 overflow-hidden">
-                      {rifa.logo_url ? (
-                        <img
-                          src={rifa.logo_url}
-                          alt="Logo"
-                          className="w-full h-full object-contain p-0.5"
-                        />
-                      ) : (
-                        /* Placeholder padrão quando não há logo */
-                        <span className="text-blue-600 text-xl font-bold">🎫</span>
-                      )}
-                    </div>
-
-                    {/* Título e Descrição */}
-                    <div className="flex-1 text-left">
-                      <h2 className="text-base font-bold text-blue-800 leading-tight">
-                        {rifa.titulo}
-                      </h2>
-                      <p className="text-[8px] text-gray-600">{rifa.descricao}</p>
-                    </div>
-                  </div>
-
-                  {/* Número da Sorte + QR Code lado a lado */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex-1 bg-blue-600 text-white p-2 rounded">
-                      <p className="text-center text-[9px] mb-1">NÚMERO DA SORTE</p>
-                      <p className="text-center text-2xl font-bold">
-                        {bilhete.numero_sorte}
-                      </p>
-                    </div>
-
-                    {/* QR Code do Comprador */}
-                    {qrCodes[`comprador_${bilhete.id}`] && (
-                      <div className="text-center">
-                        <img
-                          src={qrCodes[`comprador_${bilhete.id}`]}
-                          alt="QR Validação"
-                          className="w-20 h-20"
-                        />
-                        <p className="text-[6px] font-semibold mt-0.5">
-                          VALIDAR
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-1 text-xs mb-1">
-                    <div>
-                      <p className="font-semibold text-[9px]">📅 Sorteio:</p>
-                      <p className="text-[9px]">{rifa.data_sorteio ? new Date(rifa.data_sorteio + 'T00:00:00').toLocaleDateString('pt-BR') : 'Não definida'}</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-[9px]">💰 Valor:</p>
-                      <p className="text-[9px]">R$ {parseFloat(rifa.valor_bilhete).toFixed(2)}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-yellow-50 border border-yellow-300 p-1.5 rounded">
-                    <p className="text-[8px] leading-tight">
-                      <span className="font-bold text-[9px]">🏆 Prêmios: </span>
-                      {premios.slice(0, 3).map((premio, index) => (
-                        <span key={premio.id}>
-                          {index > 0 ? ' / ' : ''}
-                          {premio.posicao}º - {premio.descricao}
-                        </span>
-                      ))}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
+            {bilhetesDoBloco.map((bilhete, index) => renderCartao(bilhete, index))}
           </div>
         );
       })}
+
+      {/* Cartões avulsos: só os cartões, 5 por página */}
+      {modo === 'cartoes' && cartoesAvulsos.map((bilhete, index) => (
+        <div key={bilhete.id}>
+          <p className="no-print max-w-[210mm] mx-auto text-xs text-gray-500 mt-2">
+            Bloco {numeroDoBloco[bilhete.bloco_id]}
+          </p>
+          {renderCartao(bilhete, index)}
+        </div>
+      ))}
 
       <style jsx global>{`
         @media print {
