@@ -3,6 +3,8 @@
  * POST /api/blocos/[blocoId]/atribuir-vendedor
  */
 
+import { getUsuario, podeGerenciarRifa } from '../../../../lib/session';
+
 export default async function handler(req, res) {
   const { query: dbQuery } = await import('../../../../lib/db');
   const { blocoId } = req.query;
@@ -25,6 +27,20 @@ export default async function handler(req, res) {
     }
 
     const bloco = blocoResult.rows[0];
+
+    const rifaResult = await dbQuery('SELECT * FROM rifas WHERE id = ?', [bloco.rifa_id]);
+    const rifa = rifaResult.rows[0];
+
+    // O dono da rifa (ou admin) pode trocar/remover o vendedor de qualquer bloco.
+    // Sem ser dono, só é permitido o auto-cadastro pelo QR code: atribuir um
+    // vendedor a um bloco que ainda não tem nenhum.
+    const usuario = await getUsuario(req);
+    const ehDono = podeGerenciarRifa(usuario, rifa);
+    if (!ehDono && (vendedor_id === null || vendedor_id === undefined || bloco.vendedor_id)) {
+      return res.status(usuario ? 403 : 401).json({
+        error: usuario ? 'Esta rifa pertence a outro gerenciador' : 'Faça login para continuar',
+      });
+    }
 
     // Se vendedor_id for null, estamos removendo o vendedor
     if (vendedor_id === null) {
@@ -53,6 +69,11 @@ export default async function handler(req, res) {
 
     if (!vendedorResult.rows || vendedorResult.rows.length === 0) {
       return res.status(404).json({ error: 'Vendedor não encontrado ou inativo' });
+    }
+
+    // O vendedor precisa ser do mesmo gerenciador dono da rifa
+    if (vendedorResult.rows[0].gerenciador_id !== rifa.gerenciador_id) {
+      return res.status(403).json({ error: 'Este vendedor pertence a outro gerenciador' });
     }
 
     // Atribuir vendedor ao bloco

@@ -106,7 +106,7 @@ export default function DetalhesRifa({ ogData = {} }) {
       try {
         const [rifaResponse, vendedoresResponse] = await Promise.all([
           fetch(`/api/rifas/${rifaId}`),
-          fetch('/api/vendedores')
+          fetch(`/api/vendedores?rifaId=${encodeURIComponent(rifaId)}`)
         ]);
 
         if (!rifaResponse.ok) {
@@ -114,10 +114,10 @@ export default function DetalhesRifa({ ogData = {} }) {
         }
 
         const rifaData = await rifaResponse.json();
-        const vendedoresData = await vendedoresResponse.json();
+        const vendedoresData = vendedoresResponse.ok ? await vendedoresResponse.json() : { vendedores: [] };
 
         setDados(rifaData);
-        setVendedores(vendedoresData.vendedores.filter(v => v.ativo));
+        setVendedores((vendedoresData.vendedores || []).filter(v => v.ativo));
       } catch (err) {
         setError(err.message);
       } finally {
@@ -237,7 +237,7 @@ export default function DetalhesRifa({ ogData = {} }) {
       const response = await fetch('/api/vendedores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(novoVendedor),
+        body: JSON.stringify({ ...novoVendedor, rifa_id: dados.rifa.id }),
       });
 
       const data = await response.json();
@@ -307,6 +307,9 @@ export default function DetalhesRifa({ ogData = {} }) {
   }
 
   const { rifa, premios, blocos } = dados;
+
+  // Controles de gerenciamento só para o dono da rifa ou o admin
+  const podeGerenciar = !!usuario && (usuario.tipo === 'admin' || rifa.gerenciador_id === usuario.id);
 
   // Calcular estatísticas dos blocos
   const blocosDisponiveis = blocos.filter(b => b.status === 'disponivel').length;
@@ -448,7 +451,7 @@ export default function DetalhesRifa({ ogData = {} }) {
 
         {/* Seção de Gráficos de Relatório */}
         {/* Seção de Gráficos de Relatório - Apenas Logado */}
-        {usuario && (
+        {podeGerenciar && (
           <div className="mb-8">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">📈 Relatórios e Estatísticas</h2>
 
@@ -461,7 +464,7 @@ export default function DetalhesRifa({ ogData = {} }) {
 
         {/* Status dos Blocos */}
         {/* Status dos Blocos - Apenas Logado */}
-        {usuario && (
+        {podeGerenciar && (
           <div className="card mb-8">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Status dos Blocos</h2>
@@ -541,7 +544,7 @@ export default function DetalhesRifa({ ogData = {} }) {
         )}
 
         {/* Lista de Vendedores (Público) */}
-        {!usuario && vendedores.length > 0 && (
+        {!podeGerenciar && vendedores.length > 0 && (
           <div className="card mb-8">
             <h2 className="text-xl font-bold mb-4">📞 Vendedores Autorizados</h2>
             <p className="text-gray-600 mb-4">Entre em contato com um de nossos vendedores para adquirir seu bilhete:</p>
@@ -573,19 +576,19 @@ export default function DetalhesRifa({ ogData = {} }) {
 
         {/* Ações */}
         <div className="flex flex-wrap gap-4">
-          {usuario && (rifa.status === 'preparacao' || rifa.status === 'distribuido') && (
+          {podeGerenciar && (rifa.status === 'preparacao' || rifa.status === 'distribuido') && (
             <Link href={`/gerenciador/rifas/${rifaId}/imprimir`} className="btn btn-success">
               🖨️ Gerar Blocos para Impressão
             </Link>
           )}
 
-          {usuario && (blocosDistribuidos > 0 || blocosRecolhidos > 0) && (
+          {podeGerenciar && (blocosDistribuidos > 0 || blocosRecolhidos > 0) && (
             <Link href={`/gerenciador/rifas/${rifaId}/acerto`} className="btn btn-secondary">
               💰 Acerto de Contas
             </Link>
           )}
 
-          {usuario && rifa.status === 'distribuido' && new Date(rifa.data_sorteio) <= new Date() && (
+          {podeGerenciar && rifa.status === 'distribuido' && new Date(rifa.data_sorteio) <= new Date() && (
             <Link href={`/gerenciador/rifas/${rifaId}/sortear`} className="btn bg-purple-600 text-white hover:bg-purple-700">
               🎲 Realizar Sorteio
             </Link>

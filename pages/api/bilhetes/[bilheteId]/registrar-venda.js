@@ -57,6 +57,11 @@ export default async function handler(req, res) {
       if (!vendedorResult.rows || vendedorResult.rows.length === 0) {
         return res.status(404).json({ error: 'Vendedor não encontrado ou inativo' });
       }
+
+      const donoResult = await query('SELECT gerenciador_id FROM rifas WHERE id = ?', [bilhete.rifa_id]);
+      if (vendedorResult.rows[0].gerenciador_id !== donoResult.rows[0]?.gerenciador_id) {
+        return res.status(403).json({ error: 'Este vendedor não trabalha nesta rifa' });
+      }
     }
 
     // Registrar ou atualizar a venda

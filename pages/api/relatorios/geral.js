@@ -3,12 +3,23 @@
  * GET /api/relatorios/geral
  */
 
+import { exigirLogin, isAdmin } from '../../../lib/session';
+
 export default async function handler(req, res) {
   const { query } = await import('../../../lib/db');
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Método não permitido' });
   }
+
+  // Admin vê tudo; gerenciador vê apenas as próprias rifas e vendedores
+  const usuario = await exigirLogin(req, res);
+  if (!usuario) return;
+
+  const admin = isAdmin(usuario);
+  const p = admin ? [] : [usuario.id];
+  const soRifasDoUsuario = admin ? '' : ' AND r.gerenciador_id = ?';
+  const soVendedoresDoUsuario = admin ? '' : ' AND v.gerenciador_id = ?';
 
   try {
     // ==========================================
@@ -21,7 +32,9 @@ export default async function handler(req, res) {
         COUNT(CASE WHEN status_venda = 'pendente' THEN 1 END) as bilhetes_pendentes,
         COUNT(CASE WHEN status_venda = 'confirmado' THEN 1 END) as bilhetes_confirmados
       FROM bilhetes b
-      INNER JOIN rifas r ON b.rifa_id = r.id`
+      INNER JOIN rifas r ON b.rifa_id = r.id
+      WHERE 1 = 1${soRifasDoUsuario}`,
+      p
     );
 
     const vendas = {
@@ -37,16 +50,19 @@ export default async function handler(req, res) {
 
     // Total de vendedores
     const vendedoresTotalResult = await query(
-      'SELECT COUNT(*) as total FROM vendedores WHERE ativo = TRUE'
+      `SELECT COUNT(*) as total FROM vendedores v WHERE v.ativo = TRUE${soVendedoresDoUsuario}`,
+      p
     );
     const totalVendedores = parseInt(vendedoresTotalResult.rows[0]?.total || 0);
 
     // Vendedores com vendas
     const vendedoresComVendasResult = await query(
-      `SELECT COUNT(DISTINCT vendedor_id) as total
-       FROM bilhetes
-       WHERE status_venda IN ('pendente', 'confirmado', 'pago')
-       AND vendedor_id IS NOT NULL`
+      `SELECT COUNT(DISTINCT b.vendedor_id) as total
+       FROM bilhetes b
+       INNER JOIN rifas r ON b.rifa_id = r.id
+       WHERE b.status_venda IN ('pendente', 'confirmado', 'pago')
+       AND b.vendedor_id IS NOT NULL${soRifasDoUsuario}`,
+      p
     );
     const vendedoresComVendas = parseInt(vendedoresComVendasResult.rows[0]?.total || 0);
 
@@ -61,11 +77,12 @@ export default async function handler(req, res) {
       FROM vendedores v
       LEFT JOIN bilhetes b ON v.id = b.vendedor_id AND b.status_venda IN ('pendente', 'confirmado', 'pago')
       LEFT JOIN rifas r ON b.rifa_id = r.id
-      WHERE v.ativo = TRUE
+      WHERE v.ativo = TRUE${soVendedoresDoUsuario}
       GROUP BY v.id, v.nome, v.telefone
       HAVING COUNT(b.id) > 0
       ORDER BY total_vendas DESC, total_arrecadado DESC
-      LIMIT 10`
+      LIMIT 10`,
+      p
     );
 
     const ranking = (rankingResult.rows || []).map(v => ({
@@ -93,7 +110,9 @@ export default async function handler(req, res) {
         COUNT(*) as total,
         COUNT(CASE WHEN status != 'concluido' THEN 1 END) as ativas,
         COUNT(CASE WHEN status = 'concluido' THEN 1 END) as concluidas
-      FROM rifas`
+      FROM rifas r
+      WHERE 1 = 1${soRifasDoUsuario}`,
+      p
     );
 
     const rifasCount = {
@@ -115,8 +134,10 @@ export default async function handler(req, res) {
         SUM(CASE WHEN b.status_venda IN ('pendente', 'confirmado', 'pago') THEN r.valor_bilhete ELSE 0 END) as total_arrecadado
       FROM rifas r
       LEFT JOIN bilhetes b ON r.id = b.rifa_id
+      WHERE 1 = 1${soRifasDoUsuario}
       GROUP BY r.id, r.titulo, r.data_sorteio, r.status, r.qtde_bilhetes, r.valor_bilhete
-      ORDER BY r.id DESC`
+      ORDER BY r.id DESC`,
+      p
     );
 
     const rifasDetalhes = (rifasDetalhesResult.rows || []).map(rifa => ({

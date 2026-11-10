@@ -74,6 +74,7 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('usuario');
+    fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
   };
 

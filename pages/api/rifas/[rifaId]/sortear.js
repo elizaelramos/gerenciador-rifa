@@ -11,9 +11,10 @@
 
 import { query } from '../../../../lib/db';
 import { extrairNumeroSorte, encontrarGanhadorPorProximidade } from '../../../../lib/rifaLogic';
+import { exigirRifaDoUsuario } from '../../../../lib/session';
 
 export default async function handler(req, res) {
-  const { rifaId } = req.query;
+  let { rifaId } = req.query;
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido' });
@@ -31,14 +32,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ── 1. Buscar a rifa ──────────────────────────────────────────────────
-    const rifaResult = await query('SELECT * FROM rifas WHERE id = ?', [rifaId]);
-
-    if (!rifaResult.rows || rifaResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Rifa não encontrada' });
-    }
-
-    const rifa = rifaResult.rows[0];
+    // ── 1. Buscar a rifa (precisa ser do usuário logado ou admin) ─────────
+    const acesso = await exigirRifaDoUsuario(req, res, rifaId);
+    if (!acesso) return;
+    const { rifa } = acesso;
+    rifaId = rifa.id; // aceita slug na URL, mas usa sempre o id numérico
 
     if (rifa.status === 'concluido') {
       return res.status(400).json({ error: 'Esta rifa já foi sorteada' });

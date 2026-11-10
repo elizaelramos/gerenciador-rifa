@@ -125,7 +125,7 @@ export default function RegistroVenda() {
       const vendedorResponse = await fetch('/api/vendedores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dadosVendedor),
+        body: JSON.stringify({ ...dadosVendedor, bloco_id: dados.bloco.id }),
       });
 
       const vendedorData = await vendedorResponse.json();

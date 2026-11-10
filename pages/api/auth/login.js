@@ -4,6 +4,7 @@
  */
 
 import { validarLogin } from '../../../lib/auth';
+import { criarSessao } from '../../../lib/session';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Email ou senha inválidos' });
     }
 
-    // Em produção, use JWT ou sessions reais
+    criarSessao(res, usuario);
     res.status(200).json({
       success: true,
       usuario: {

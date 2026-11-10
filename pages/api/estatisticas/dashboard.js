@@ -1,19 +1,30 @@
 /**
  * API Route: Estatísticas do Dashboard
  * GET /api/estatisticas/dashboard
+ * Admin vê os números de todos; gerenciador vê apenas os dele.
  */
 
-export default async function handler(req, res) {
-  const { query } = await import('../../../lib/db');
+import { query } from '../../../lib/db';
+import { exigirLogin, isAdmin } from '../../../lib/session';
 
+export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Método não permitido' });
   }
 
+  const usuario = await exigirLogin(req, res);
+  if (!usuario) return;
+
+  const admin = isAdmin(usuario);
+  const filtroVendedor = admin ? '' : ' AND gerenciador_id = ?';
+  const filtroRifa = admin ? '' : ' AND r.gerenciador_id = ?';
+  const params = admin ? [] : [usuario.id];
+
   try {
     // Total de vendedores ativos
     const vendedoresResult = await query(
-      'SELECT COUNT(*) as total FROM vendedores WHERE ativo = TRUE'
+      `SELECT COUNT(*) as total FROM vendedores WHERE ativo = TRUE${filtroVendedor}`,
+      params
     );
     const totalVendedores = vendedoresResult.rows[0]?.total || 0;
 
@@ -24,7 +35,8 @@ export default async function handler(req, res) {
         SUM(r.valor_bilhete) as total_arrecadado
       FROM bilhetes b
       INNER JOIN rifas r ON b.rifa_id = r.id
-      WHERE b.status_venda IN ('pendente', 'confirmado', 'pago')`
+      WHERE b.status_venda IN ('pendente', 'confirmado', 'pago')${filtroRifa}`,
+      params
     );
 
     const totalBilhetesVendidos = vendasResult.rows[0]?.total_bilhetes_vendidos || 0;

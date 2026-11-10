@@ -9,11 +9,16 @@ import fs from 'fs';
 import path from 'path';
 import { gerarNumerosAleatorios } from '../../../lib/rifaLogic';
 import { gerarSlug } from '../../../lib/formatters';
+import { exigirLogin } from '../../../lib/session';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido' });
   }
+
+  // A rifa pertence sempre a quem está logado (ignora qualquer id enviado pelo navegador)
+  const usuario = await exigirLogin(req, res);
+  if (!usuario) return;
 
   const {
     titulo,
@@ -25,7 +30,6 @@ export default async function handler(req, res) {
     valor_bilhete,
     data_sorteio,
     premios,
-    gerenciador_id,
   } = req.body;
 
   // Validações
@@ -84,10 +88,10 @@ export default async function handler(req, res) {
     const slug = gerarSlug(titulo);
 
     const resultRifa = await query(
-      `INSERT INTO rifas (titulo, descricao, slug, logo_url, qtde_bilhetes, tipo_sorteio, qtde_blocos,
+      `INSERT INTO rifas (gerenciador_id, titulo, descricao, slug, logo_url, qtde_bilhetes, tipo_sorteio, qtde_blocos,
                           bilhetes_por_bloco, valor_bilhete, data_sorteio, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [titulo, descricao, slug, dbLogoUrl || null, qtde_bilhetes, tipo_sorteio, qtde_blocos,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [usuario.id, titulo, descricao, slug, dbLogoUrl || null, qtde_bilhetes, tipo_sorteio, qtde_blocos,
         bilhetes_por_bloco, valor_bilhete, data_sorteio, 'preparacao']
     );
 

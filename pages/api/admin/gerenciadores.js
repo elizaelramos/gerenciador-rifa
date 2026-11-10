@@ -5,8 +5,12 @@
  */
 
 import { criarGerenciador, listarGerenciadores } from '../../../lib/auth';
+import { exigirAdmin } from '../../../lib/session';
 
 export default async function handler(req, res) {
+  const admin = await exigirAdmin(req, res);
+  if (!admin) return;
+
   // GET - Listar gerenciadores
   if (req.method === 'GET') {
     try {

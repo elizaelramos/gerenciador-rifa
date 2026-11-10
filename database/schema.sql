@@ -13,6 +13,7 @@ USE rifa;
 -- ============================================
 CREATE TABLE IF NOT EXISTS rifas (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    gerenciador_id INT NULL,                        -- Dono da rifa (usuarios.id)
     titulo VARCHAR(255) NOT NULL,
     slug VARCHAR(255) UNIQUE,                       -- URL amigável gerada do título
     descricao TEXT,
@@ -26,7 +27,8 @@ CREATE TABLE IF NOT EXISTS rifas (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_status (status),
-    INDEX idx_data_sorteio (data_sorteio)
+    INDEX idx_data_sorteio (data_sorteio),
+    INDEX idx_rifas_gerenciador (gerenciador_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
@@ -67,13 +69,15 @@ CREATE TABLE IF NOT EXISTS blocos (
 -- ============================================
 CREATE TABLE IF NOT EXISTS vendedores (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    gerenciador_id INT NULL,                        -- Gerenciador dono do vendedor (usuarios.id)
     nome VARCHAR(255) NOT NULL,
     telefone VARCHAR(20) NOT NULL,
     bloco_id INT DEFAULT NULL,                      -- Primeiro bloco que pegou (auto-associação)
     data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     ativo BOOLEAN DEFAULT TRUE,
     UNIQUE KEY unique_telefone (telefone),
-    INDEX idx_bloco (bloco_id)
+    INDEX idx_bloco (bloco_id),
+    INDEX idx_vendedores_gerenciador (gerenciador_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
@@ -148,6 +152,14 @@ CREATE TABLE IF NOT EXISTS usuarios (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY unique_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Dono das rifas e dos vendedores (criadas depois de `usuarios` existir)
+ALTER TABLE rifas
+    ADD CONSTRAINT fk_rifas_gerenciador
+        FOREIGN KEY (gerenciador_id) REFERENCES usuarios(id) ON DELETE SET NULL;
+ALTER TABLE vendedores
+    ADD CONSTRAINT fk_vendedores_gerenciador
+        FOREIGN KEY (gerenciador_id) REFERENCES usuarios(id) ON DELETE SET NULL;
 
 -- ============================================
 -- DADOS INICIAIS (OPCIONAL)

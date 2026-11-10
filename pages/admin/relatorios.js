@@ -63,6 +63,7 @@ export default function AdminRelatorios() {
 
   const handleLogout = () => {
     localStorage.removeItem('usuario');
+    fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
   };
 

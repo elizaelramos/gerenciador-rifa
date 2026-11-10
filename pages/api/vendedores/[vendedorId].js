@@ -4,9 +4,28 @@
  * DELETE /api/vendedores/[vendedorId] - Desativa um vendedor
  */
 
+import { exigirLogin, podeGerenciarVendedor } from '../../../lib/session';
+
 export default async function handler(req, res) {
   const { query } = await import('../../../lib/db');
   const { vendedorId } = req.query;
+
+  if (req.method !== 'PUT' && req.method !== 'DELETE') {
+    return res.status(405).json({ error: 'Método não permitido' });
+  }
+
+  // Só o dono do vendedor (ou admin) pode alterá-lo
+  const usuario = await exigirLogin(req, res);
+  if (!usuario) return;
+
+  const vendedorResult = await query('SELECT * FROM vendedores WHERE id = ?', [vendedorId]);
+  const vendedorAtual = vendedorResult.rows?.[0];
+  if (!vendedorAtual) {
+    return res.status(404).json({ error: 'Vendedor não encontrado' });
+  }
+  if (!podeGerenciarVendedor(usuario, vendedorAtual)) {
+    return res.status(403).json({ error: 'Este vendedor pertence a outro gerenciador' });
+  }
 
   if (req.method === 'PUT') {
     try {

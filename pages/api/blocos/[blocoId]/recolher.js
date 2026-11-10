@@ -5,6 +5,8 @@
  * Marca um bloco como recolhido após o acerto de contas com o vendedor
  */
 
+import { exigirRifaDoUsuario } from '../../../../lib/session';
+
 export default async function handler(req, res) {
     const { query: dbQuery } = await import('../../../../lib/db');
     const { blocoId } = req.query;
@@ -25,6 +27,10 @@ export default async function handler(req, res) {
         }
 
         const bloco = blocoResult.rows[0];
+
+        // Só o dono da rifa (ou admin) faz o acerto de contas
+        const acesso = await exigirRifaDoUsuario(req, res, bloco.rifa_id);
+        if (!acesso) return;
 
         // Verificar se o bloco está distribuído
         if (bloco.status !== 'distribuido') {
