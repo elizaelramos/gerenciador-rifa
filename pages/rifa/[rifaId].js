@@ -576,6 +576,12 @@ export default function DetalhesRifa({ ogData = {} }) {
 
         {/* Ações */}
         <div className="flex flex-wrap gap-4">
+          {podeGerenciar && rifa.status !== 'concluido' && (
+            <Link href={`/gerenciador/rifas/${rifaId}/editar`} className="btn btn-primary">
+              ✏️ Editar Rifa
+            </Link>
+          )}
+
           {podeGerenciar && (rifa.status === 'preparacao' || rifa.status === 'distribuido') && (
             <Link href={`/gerenciador/rifas/${rifaId}/imprimir`} className="btn btn-success">
               🖨️ Gerar Blocos para Impressão

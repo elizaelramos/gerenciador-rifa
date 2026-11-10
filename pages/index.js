@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import Link from 'next/link';
-import { formatarData } from '../lib/formatters';
+import CardRifa from '../components/CardRifa';
 
 export default function Home() {
   const [rifas, setRifas] = useState([]);
@@ -114,48 +114,9 @@ export default function Home() {
               </Link>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {rifasExibidas.map(rifa => (
-                <div key={rifa.id} className="card hover:shadow-lg transition-shadow">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-bold">{rifa.titulo}</h3>
-                    <span className="badge bg-blue-100 text-blue-800">
-                      {rifa.status === 'preparacao' ? 'Em Preparação' : rifa.status}
-                    </span>
-                  </div>
-
-                  <p className="text-gray-600 mb-4">{rifa.descricao}</p>
-
-                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                    <div>
-                      <span className="text-gray-500">Data do Sorteio:</span>
-                      <p className="font-semibold">
-                        {formatarData(rifa.data_sorteio)}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Valor do Bilhete:</span>
-                      <p className="font-semibold">
-                        R$ {parseFloat(rifa.valor_bilhete).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/rifa/${rifa.slug || rifa.id}`}
-                      className="btn btn-primary flex-1 text-center"
-                    >
-                      Ver Detalhes
-                    </Link>
-                    <Link
-                      href={`/validacao?rifaId=${rifa.slug || rifa.id}`}
-                      className="btn btn-secondary text-center"
-                    >
-                      Validar
-                    </Link>
-                  </div>
-                </div>
+                <CardRifa key={rifa.id} rifa={rifa} />
               ))}
             </div>
           )}
