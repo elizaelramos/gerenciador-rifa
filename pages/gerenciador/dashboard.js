@@ -218,7 +218,7 @@ export default function GerenciadorDashboard() {
                         Editar
                       </Link>
                     )}
-                    {rifa.status === 'preparacao' && (
+                    {rifa.status !== 'concluido' && (
                       <Link
                         href={`/gerenciador/rifas/${rifa.id}/imprimir`}
                         className="btn btn-success text-sm"
