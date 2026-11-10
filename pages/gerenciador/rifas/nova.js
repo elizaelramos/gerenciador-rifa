@@ -149,7 +149,7 @@ export default function NovaRifa() {
     setSugestao(novaSugestao);
   }, [inputCartoes]);
 
-  // Função para validar se a data é quarta ou sábado (dias da Loteria Federal)
+  // Função para validar se a data é quarta ou domingo (dias da Loteria Federal)
   const validarDataSorteio = (data) => {
     if (!data) {
       setDataValida(true);
@@ -158,25 +158,22 @@ export default function NovaRifa() {
     }
 
     const dataSelecionada = new Date(data + 'T00:00:00');
-    const diaSemana = dataSelecionada.getDay(); // 0 = Domingo, 3 = Quarta, 6 = Sábado
+    const diaSemana = dataSelecionada.getDay(); // 0 = Domingo, 3 = Quarta
 
-    if (diaSemana === 3 || diaSemana === 6) {
+    if (diaSemana === 3 || diaSemana === 0) {
       setDataValida(true);
       setMensagemData(diaSemana === 3
         ? '✓ Quarta-feira - Dia de sorteio da Loteria Federal'
-        : '✓ Sábado - Dia de sorteio da Loteria Federal'
+        : '✓ Domingo - Dia de sorteio da Loteria Federal'
       );
       return true;
     } else {
       setDataValida(false);
       const diasParaProximaQuarta = (3 - diaSemana + 7) % 7;
-      const diasParaProximoSabado = (6 - diaSemana + 7) % 7;
-      const proximaData = diasParaProximaQuarta < diasParaProximoSabado
-        ? diasParaProximaQuarta
-        : diasParaProximoSabado;
-
-      const diaNome = proximaData === diasParaProximaQuarta ? 'quarta-feira' : 'sábado';
-      setMensagemData(`⚠️ A Loteria Federal sorteia apenas às quartas e sábados. Escolha uma ${diaNome}.`);
+      const diasParaProximoDomingo = (0 - diaSemana + 7) % 7;
+      const diaNome = diasParaProximaQuarta < diasParaProximoDomingo ? 'quarta-feira' : 'domingo';
+      const artigo = diaNome === 'domingo' ? 'um' : 'uma';
+      setMensagemData(`⚠️ A Loteria Federal sorteia apenas às quartas e aos domingos. Escolha ${artigo} ${diaNome}.`);
       return false;
     }
   };
@@ -313,7 +310,7 @@ export default function NovaRifa() {
     try {
       // Validar data do sorteio
       if (!dataValida) {
-        throw new Error('A data do sorteio deve ser uma quarta-feira ou sábado (dias de sorteio da Loteria Federal)');
+        throw new Error('A data do sorteio deve ser uma quarta-feira ou um domingo (dias de sorteio da Loteria Federal)');
       }
 
       // Validar bilhetes por bloco
@@ -512,7 +509,7 @@ export default function NovaRifa() {
               <div>
                 <label className="label">Data do Sorteio *</label>
                 <p className="text-xs text-gray-600 mb-2">
-                  A Loteria Federal sorteia apenas às <strong>quartas-feiras</strong> e <strong>sábados</strong>
+                  A Loteria Federal sorteia apenas às <strong>quartas-feiras</strong> e aos <strong>domingos</strong>
                 </p>
                 <input
                   type="date"
